@@ -1,0 +1,268 @@
+{
+  "log": {
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log",
+    "loglevel": "info",
+    "dnsLog": true
+  },
+  "api": {
+    "tag": "api",
+    "listen": "127.0.0.1:18000",
+    "services": ["HandlerService", "LoggerService", "StatsService", "RoutingService"]
+  },
+  "dns": {
+    "hosts": {
+      "dns.google": "8.8.8.8",
+      "dns.pub": "119.29.29.29",
+      "dns.alidns.com": "223.5.5.5",
+      "geosite:category-ads-all": "127.0.0.1"
+    },
+    "servers": [
+      {
+        "address": "https://1.1.1.1/dns-query",
+        "domains": [
+          "geosite:geolocation-!cn",
+          "geosite:google@cn"
+        ],
+        "expectIPs": [
+          "geoip:!cn"
+        ]
+      },
+      {
+        "address": "https://dns.alidns.com/dns-query",
+        "domains": [
+          "geosite:cn",
+          "geosite:category-games@cn"
+        ],
+        "expectIPs": [
+          "geoip:cn"
+        ],
+        "skipFallback": true
+      },
+      {
+        "address": "10.16.100.1",
+        "domains": [
+          "domain:xtinct.top"
+        ],
+        "skipFallback": true
+      }
+    ]
+  },
+  "inbounds": [
+    {
+      "tag": "tproxy",
+      "port": 45123,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "network": "tcp,udp",
+        "followRedirect": true
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
+      },
+      "streamSettings": {
+        "sockopt": {
+          "tproxy": "tproxy"
+        }
+      }
+    },
+    {
+      "protocol": "http",
+      "listen": "0.0.0.0",
+      "port": 2080,
+      "tag": "http-inbound",
+      "settings": {},
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "vmess",
+      "tag": "proxy_vmess",
+      "settings": {
+        "vnext": [
+          {
+            "address": "fill_addr",
+            "port": 0,
+            "users": [
+              {
+                "id": "x",
+                "alterId": 0,
+                "security": "auto"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "sockopt": {
+          "mark": 2
+        }
+      }
+    },
+    {
+      "protocol": "shadowsocks",
+      "tag": "proxy_ss",
+      "settings": {
+        "servers": [
+          {
+            "address": "fill_addr",
+            "port": 0,
+            "method": "aes-256-gcm",
+            "password": "x"
+          }
+        ]
+      },
+      "streamSettings": {
+        "sockopt": {
+          "mark": 2
+        }
+      }
+    },
+    {
+      "protocol": "dns",
+      "tag": "dns-out",
+      "streamSettings": {
+        "sockopt": {
+          "mark": 2
+        }
+      }
+    },
+    {
+      "protocol": "freedom",
+      "tag": "direct",
+      "settings": {
+        "domainStrategy": "UseIPv4"
+      },
+      "streamSettings": {
+        "sockopt": {
+          "mark": 2
+        }
+      }
+    },
+    {
+      "protocol": "blackhole",
+      "tag": "block",
+      "settings": {
+        "response": {
+          "type": "http"
+        }
+      }
+    }
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "domainMatcher": "hybrid",
+    "rules": [
+      {
+        "type": "field",
+        "outboundTag": "direct",
+        "protocol": [
+          "bittorrent"
+        ]
+      },
+      {
+        "type": "field",
+        "inboundTag": [
+          "tproxy",
+          "http-inbound"
+        ],
+        "outboundTag": "dns-out",
+        "network": "tcp,udp",
+        "port": 53
+      },
+      {
+        "type": "field",
+        "outboundTag": "block",
+        "domain": [
+          "geosite:category-ads-all"
+        ]
+      },
+      {
+        "type": "field",
+        "outboundTag": "direct",
+        "ip": [
+          "192.168.1.2"
+        ]
+      },
+      {
+        "type": "field",
+        "outboundTag": "proxy_ss",
+        "domain": [
+          "full:www.icloud.com",
+          "domain:icloud-content.com",
+          "domain:origin.warframe.com",
+          "domain:api.warframe.com",
+          "geosite:google",
+          "geosite:docker",
+          "geosite:openai"
+        ]
+      },
+      {
+        "type": "field",
+        "outboundTag": "direct",
+        "domain": [
+          "domain:checkip.synology.com",
+          "domain:checkipv6.synology.com",
+          "domain:checkport.synology.com",
+          "domain:checkip.dyndns.org",
+          "domain:checkport.synology.com",
+          "domain:ddns.synology.com",
+          "domain:account.synology.com",
+          "domain:quickconnect.to",
+          "domain:quickconnect.cn",
+          "domain:dyndns.org",
+          "domain:v4.plex.tv",
+          "domain:warframe.com",
+          "domain:steamserver.net",
+          "geosite:tld-cn",
+          "geosite:steam@cn",
+          "geosite:category-game-accelerator-cn",
+          "geosite:icloud",
+          "geosite:apple-cn",
+          "geosite:category-games@cn"
+        ]
+      },
+      {
+        "type": "field",
+        "outboundTag": "proxy_ss",
+        "domain": [
+          "geosite:geolocation-!cn"
+        ]
+      },
+      {
+        "type": "field",
+        "outboundTag": "direct",
+        "domain": [
+          "geosite:cn",
+          "geosite:private"
+        ]
+      },
+      {
+        "type": "field",
+        "outboundTag": "direct",
+        "ip": [
+          "geoip:cn",
+          "geoip:private"
+        ]
+      },
+      {
+        "type": "field",
+        "outboundTag": "proxy_ss",
+        "network": "tcp,udp"
+      }
+    ]
+  }
+}
